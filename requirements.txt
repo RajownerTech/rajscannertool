@@ -1,0 +1,8 @@
+---
+
+# 📄 3️⃣ `requirements.txt`
+
+```text
+requests
+colorama
+rich
