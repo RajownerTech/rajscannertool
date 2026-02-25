@@ -44,9 +44,7 @@ Provides information about the tool's developer, including social media links an
 ```bash
 pip install git+https://github.com/RajownerTech/rajscannertool.git
 
-### 🔹 INSTALL (Copy & Paste)
-```bash
-rajscannertool
+
 
 ### 🔹 INSTALL (Copy & Paste)
 ```bash
