@@ -568,12 +568,9 @@ def main():
             console.print(f"[bright_red]❌ Invalid option! Please choose 0, 1, 2, 3, or 4.[/bright_red]")
             time.sleep(1)
 
-if __name__ == "__main__":
+def start():
     try:
         ensure_output_dir()
         main()
     except KeyboardInterrupt:
-        console.print(f"\n[bright_yellow]⚠️ Exiting...[/bright_yellow]")
-        console.print(f"[bright_cyan]Follow @raj_dark_official on Instagram![/bright_cyan]")
-    except Exception as e:
-        console.print(f"\n[bright_red]❌ Fatal Error: {e}[/bright_red]")
+        console.print("\n⚠️ Exiting...")
