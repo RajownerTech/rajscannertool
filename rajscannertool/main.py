@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 import os
 import re
 import ipaddress
@@ -24,9 +23,7 @@ from rich import box
 from urllib3.exceptions import InsecureRequestWarning
 
 # --- Configuration ---
-# Modified for cross-platform compatibility
-HOME_DIR = os.path.expanduser("~")
-OUTPUT_DIR = os.path.join(HOME_DIR, "RajScan_Results")
+OUTPUT_DIR = "/storage/emulated/0/Download/RajScan_Results"
 SAVE_FILE = os.path.join(OUTPUT_DIR, "extracted_domains.txt")
 RESULTS_IP = os.path.join(OUTPUT_DIR, "scanner_ips.txt")
 RESULTS_WORD = os.path.join(OUTPUT_DIR, "scanner_results.txt")
@@ -160,7 +157,7 @@ def show_developer_info():
     console.print(f"[bright_white]If you like this tool, follow on social media for updates![/bright_white]")
     console.print(f"[bright_magenta]Subscribe to YouTube channel for more hacking tools![/bright_magenta]")
     
-    input(f"\n[bright_cyan]🔄 Press Enter to return to menu...[/bright_cyan]")
+    input(f"\n🔄 Press Enter to return to menu...")
 
 # --- Domain Extractor ---
 
@@ -223,7 +220,7 @@ def run_extractor():
     else:  
         console.print(f"[bright_yellow]⚠️ No new domains found.[/bright_yellow]")  
 
-    input(f"\n[bright_cyan]🔄 Press Enter to return to menu...[/bright_cyan]")  
+    input(f"\n🔄 Press Enter to return to menu...")  
     return
 
 # --- Text Scanner (Host Scanner) with Thread Selection ---
@@ -272,16 +269,17 @@ def scan_head(domain, port, progress, task_id, total_found):
                     f"[bright_magenta]{ip:15}[/bright_magenta] | "
                     f"[bright_blue]{domain}:{port}[/bright_blue]"
                 )
-                
-                with open(RESULTS_WORD, "a") as f:
-                    f.write(line + "\n")
-                
-                with open(RESULTS_IP, "a") as f:
-                    f.write(ip + "\n")
-                
                 total_found[0] += 1
                 
-    except Exception:
+                if total_found[0] % 100 == 0:
+                    try:
+                        with open(RESULTS_IP, "a") as ip_file:
+                            ip_file.write(f"{ip}\n")
+                        with open(RESULTS_WORD, "a") as word_file:
+                            word_file.write(f"{line}\n")
+                    except:
+                        pass
+    except:
         pass
     finally:
         progress.update(task_id, advance=1)
@@ -291,129 +289,216 @@ def run_text_scanner():
     console.print(f"\n[bold bright_red]🔍 HOST SCANNER[/bold bright_red]")
     console.print(f"[bright_cyan]──────────────────────────────────────────[/bright_cyan]")
     
-    file_path = input(f"{Fore.YELLOW}📂 Enter path to domain list: {Style.RESET_ALL}").strip()
-    if not os.path.exists(file_path):
-        console.print(f"[bright_red]❌ File not found![/bright_red]")
-        time.sleep(1)
+    filename = input(f"{Fore.CYAN}📂 Enter filename containing subdomains: {Style.RESET_ALL}").strip()
+    
+    if not filename:
+        console.print(f"[bright_red]❌ Filename cannot be empty![/bright_red]")
+        input(f"\n🔄 Press Enter to return to menu...")
         return
-
-    ports_input = input(f"{Fore.YELLOW}🔌 Enter ports (comma separated, e.g. 80,443,8080): {Style.RESET_ALL}").strip()
-    ports = [int(p.strip()) for p in ports_input.split(",")] if ports_input else [80]
-    
-    threads = get_thread_count()
-
-    with open(file_path, "r") as f:
-        domains = [line.strip() for line in f if line.strip()]
-
-    total_tasks = len(domains) * len(ports)
-    total_found = [0]
-
-    console.print(f"\n[bright_blue]🚀 Starting scan on {len(domains)} domains with {threads} threads...[/bright_blue]\n")
-
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(bar_width=None),
-        MofNCompleteColumn(),
-        TaskProgressColumn(),
-        TimeRemainingColumn(),
-        console=console,
-        expand=True
-    ) as progress:
-        task_id = progress.add_task("[bright_cyan]Scanning...", total=total_tasks)
-        
-        with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
-            futures = []
-            for domain in domains:
-                for port in ports:
-                    futures.append(executor.submit(scan_head, domain, port, progress, task_id, total_found))
-            
-            concurrent.futures.wait(futures)
-
-    console.print(f"\n[bold bright_red]📊 SCAN COMPLETE[/bold bright_red]")
-    console.print(f"[bright_cyan]──────────────────────────────────────────[/bright_cyan]")
-    console.print(f"[bright_green]Total Found:[/bright_green] {total_found[0]}")
-    console.print(f"[bright_blue]Results saved to:[/bright_blue] {RESULTS_WORD}")
-    
-    input(f"\n[bright_cyan]🔄 Press Enter to return to menu...[/bright_cyan]")
-
-# --- CIDR Scanner ---
-
-def scan_cidr_host(ip, port, progress, task_id, total_found):
-    url = f"http://{ip}:{port}" if port != 443 else f"https://{ip}:{port}"
     
     try:
-        session = get_session()
-        resp = session.head(url, timeout=2, allow_redirects=False)
-        status = resp.status_code
-        server = resp.headers.get("Server", "Unknown")
+        with open(filename, "r") as f:
+            total = sum(1 for line in f if line.strip())
+    except FileNotFoundError:
+        console.print(f"[bright_red]❌ File '{filename}' not found![/bright_red]")
+        input(f"\n🔄 Press Enter to return to menu...")
+        return
+    
+    if total == 0:
+        console.print(f"[bright_yellow]⚠️ Input file is empty.[/bright_yellow]")
+        input(f"\n🔄 Press Enter to return to menu...")
+        return
 
-        if status != 302 and "jio" not in server.lower():
-            line = f"{status} | {server[:15]} | {ip} | {ip}:{port}"
+    try:
+        port = int(input(f"{Fore.CYAN}🔌 Enter port (default 443): {Style.RESET_ALL}").strip() or "443")
+    except ValueError:
+        port = 443
+
+    # Get thread count from user
+    threads = get_thread_count()
+    console.print(f"[bright_green]⚡ Using {threads} threads for scanning![/bright_green]")
+
+    open(RESULTS_IP, "w").close()
+    open(RESULTS_WORD, "w").close()
+
+    total_found = [0] 
+    start = time.time()
+
+    console.print(f"\n[bright_cyan]📊 Statistics:[/bright_cyan]")
+    console.print(f"  [bright_blue]• Total Domains:[/bright_blue] {total:,}")
+    console.print(f"  [bright_blue]• Port:[/bright_blue] {port}")
+    console.print(f"  [bright_blue]• Threads:[/bright_blue] {threads}")
+    console.print(f"  [bright_blue]• Batch Size:[/bright_blue] {BATCH_SIZE:,}")
+    console.print(f"\n[bright_green]🚀 Starting ultra-fast scan...[/bright_green]")
+
+    try:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(bar_width=40, complete_style="bright_green"),
+            TaskProgressColumn(),
+            MofNCompleteColumn(),
+            TimeRemainingColumn(),
+            console=console
+        ) as progress:
+            task_id = progress.add_task(f"[bright_yellow]Scanning domains...", total=total)
             
-            if status == 200:
-                status_color = "bright_green"
-            elif status < 400:
-                status_color = "bright_yellow"
-            else:
-                status_color = "bright_red"
+            with open(filename, "r") as f:
+                domain_batch = []
+                for line in f:
+                    domain = line.strip()
+                    if domain:
+                        domain_batch.append(domain)
+                        
+                        if len(domain_batch) >= BATCH_SIZE:
+                            with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
+                                futures = [executor.submit(scan_head, d, port, progress, task_id, total_found) for d in domain_batch]
+                                concurrent.futures.wait(futures)
+                            domain_batch = []
+                            time.sleep(0.1)
+                
+                if domain_batch:
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
+                        futures = [executor.submit(scan_head, d, port, progress, task_id, total_found) for d in domain_batch]
+                        concurrent.futures.wait(futures)
+
+    except Exception as e:
+        console.print(f"[bright_red]❌ Error during scan: {e}[/bright_red]")
+
+    elapsed = time.time() - start
+    rate = total / elapsed if elapsed > 0 else 0
+
+    console.print(f"\n[bold bright_red]📊 FINAL SUMMARY[/bold bright_red]")
+    console.print(f"[bright_cyan]──────────────────────────────────────────[/bright_cyan]")
+    console.print(f"[bright_blue]Total Scanned:[/bright_blue] {total:,}")
+    console.print(f"[bright_green]Responsive Hosts:[/bright_green] {total_found[0]:,}")
+    console.print(f"[bright_yellow]Success Rate:[/bright_yellow] {(total_found[0]/total*100):.1f}%")
+    console.print(f"[bright_magenta]Time Taken:[/bright_magenta] {elapsed:.2f} seconds")
+    console.print(f"[bright_cyan]Speed:[/bright_cyan] {rate:.2f} domains/sec")
+    
+    console.print(f"\n[bright_green]✅ Results saved to:[/bright_green]")
+    console.print(f"  [bright_blue]• {RESULTS_IP}[/bright_blue]")
+    console.print(f"  [bright_blue]• {RESULTS_WORD}[/bright_blue]")
+    
+    input(f"\n🔄 Press Enter to return to menu...")
+
+# --- CIDR Scanner with Thread Selection ---
+
+def scan_cidr_host(ip, port, progress, task_id, total_found):
+    """Optimized CIDR scanner"""
+    protocols = ['http', 'https']
+    session = get_session()
+    
+    for protocol in protocols:
+        url = f"{protocol}://{ip}:{port}"
+        try:
+            response = session.get(
+                url, timeout=2,
+                allow_redirects=False
+            )
             
-            with lock:
-                console.print(
-                    f"[{status_color}]●[/{status_color}] "
-                    f"[{status_color}]{status}[/{status_color}] | "
-                    f"[bright_cyan]{server[:15]:15}[/bright_cyan] | "
-                    f"[bright_magenta]{ip:15}[/bright_magenta] | "
-                    f"[bright_blue]{ip}:{port}[/bright_blue]"
-                )
-                
-                with open(CIDR_RESULTS, "a") as f:
-                    f.write(line + "\n")
-                
-                total_found[0] += 1
-                
-    except Exception:
-        pass
-    finally:
-        progress.update(task_id, advance=1)
+            server = response.headers.get('Server', 'Unknown')
+            
+            if response.status_code != 404 and "404 Not Found" not in response.text:
+                with lock:
+                    if response.status_code == 200:
+                        status_color = "bright_green"
+                    elif response.status_code < 400:
+                        status_color = "bright_yellow"
+                    else:
+                        status_color = "bright_red"
+                    
+                    console.print(
+                        f"[{status_color}]●[/{status_color}] "
+                        f"[{status_color}]{response.status_code}[/{status_color}] | "
+                        f"[bright_cyan]{server[:20]:20}[/bright_cyan] | "
+                        f"[bright_magenta]{protocol}[/bright_magenta] | "
+                        f"[bright_blue]{ip}:{port}[/bright_blue]"
+                    )
+                    
+                    total_found[0] += 1
+                    
+                    result_line = f"{response.status_code} | {server} | {protocol}://{ip}:{port}"
+                    try:
+                        with open(CIDR_RESULTS, "a") as cidr_file:
+                            cidr_file.write(f"{result_line}\n")
+                    except:
+                        pass
+                    
+                    break
+        except:
+            continue
+    
+    progress.update(task_id, advance=1)
 
 def run_cidr_scanner():
     ensure_output_dir()
     console.print(f"\n[bold bright_red]🌐 CIDR SCANNER[/bold bright_red]")
     console.print(f"[bright_cyan]──────────────────────────────────────────[/bright_cyan]")
     
-    cidr = input(f"{Fore.YELLOW}📡 Enter CIDR range (e.g. 1.1.1.0/24): {Style.RESET_ALL}").strip()
+    cidr_input = input(f"{Fore.CYAN}📡 Enter CIDR (e.g., 192.168.1.0/24): {Style.RESET_ALL}").strip()
+    
+    if not cidr_input:
+        console.print(f"[bright_red]❌ CIDR cannot be empty![/bright_red]")
+        input(f"\n🔄 Press Enter to return to menu..")
+        return
+    
     try:
-        network = ipaddress.ip_network(cidr, strict=False)
-        hosts = [str(ip) for ip in network]
-    except ValueError:
-        console.print(f"[bright_red]❌ Invalid CIDR range![/bright_red]")
-        time.sleep(1)
+        if '/' in cidr_input:
+            network = ipaddress.ip_network(cidr_input, strict=False)
+        else:
+            network = ipaddress.ip_network(f"{cidr_input}/32", strict=False)
+    except ValueError as e:
+        console.print(f"[bright_red]❌ Invalid CIDR: {e}[/bright_red]")
+        input(f"\n🔄 Press Enter to return to menu...")
         return
 
-    ports_input = input(f"{Fore.YELLOW}🔌 Enter ports (comma separated, e.g. 80,443,8080): {Style.RESET_ALL}").strip()
-    ports = [int(p.strip()) for p in ports_input.split(",")] if ports_input else [80]
-    
+    ports_input = input(f"{Fore.CYAN}🔌 Enter ports (comma-separated, default 80,443,8080): {Style.RESET_ALL}").strip()
+    if ports_input:
+        try:
+            ports = [int(p.strip()) for p in ports_input.split(',') if p.strip().isdigit()]
+        except:
+            ports = [80, 443, 8080]
+    else:
+        ports = [80, 443, 8080]
+
+    # Get thread count from user
     threads = get_thread_count()
+    console.print(f"[bright_green]⚡ Using {threads} threads for CIDR scan![/bright_green]")
+
+    open(CIDR_RESULTS, "w").close()
+
+    if network.num_addresses > 65536:
+        console.print(f"[bright_yellow]⚠️ Large network detected. This may take a while...[/bright_yellow]")
+    
+    hosts = [str(ip) for ip in network.hosts()]
     total_ips = len(hosts)
     total_tasks = total_ips * len(ports)
+    
     total_found = [0]
 
-    console.print(f"\n[bright_blue]🚀 Starting CIDR scan on {total_ips} IPs with {threads} threads...[/bright_blue]\n")
+    console.print(f"\n[bright_cyan]📊 Scan Configuration:[/bright_cyan]")
+    console.print(f"  [bright_blue]• Network:[/bright_blue] {network}")
+    console.print(f"  [bright_blue]• Total IPs:[/bright_blue] {total_ips:,}")
+    console.print(f"  [bright_blue]• Ports:[/bright_blue] {', '.join(map(str, ports))}")
+    console.print(f"  [bright_blue]• Threads:[/bright_blue] {threads} 🔥")
+    console.print(f"  [bright_blue]• Chunk Size:[/bright_blue] {CHUNK_SIZE:,}")
+    console.print(f"\n[bright_green]🚀 Starting CIDR scan...[/bright_green]")
 
     try:
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
-            BarColumn(bar_width=None),
-            MofNCompleteColumn(),
+            BarColumn(bar_width=40, complete_style="bright_green"),
             TaskProgressColumn(),
+            MofNCompleteColumn(),
             TimeRemainingColumn(),
-            console=console,
-            expand=True
+            console=console
         ) as progress:
+            task_id = progress.add_task(f"[bright_yellow]Scanning IPs...", total=total_tasks)
+            
             for port in ports:
-                task_id = progress.add_task(f"[bright_cyan]Port {port}...", total=total_ips)
+                console.print(f"\n[bright_cyan]🔍 Scanning port {port}...[/bright_cyan]")
                 
                 for i in range(0, total_ips, CHUNK_SIZE):
                     chunk = hosts[i:i + CHUNK_SIZE]
@@ -447,7 +532,7 @@ def run_cidr_scanner():
     if total_found[0] > 0:
         console.print(f"\n[bright_green]✅ Results saved to: {CIDR_RESULTS}[/bright_green]")
     
-    input(f"\n[bright_cyan]🔄 Press Enter to return to menu...[/bright_cyan]")
+    input(f"\n🔄 Press Enter to return to menu...")
 
 # --- Menu ---
 
@@ -483,9 +568,12 @@ def main():
             console.print(f"[bright_red]❌ Invalid option! Please choose 0, 1, 2, 3, or 4.[/bright_red]")
             time.sleep(1)
 
-def start():
+if __name__ == "__main__":
     try:
         ensure_output_dir()
         main()
     except KeyboardInterrupt:
-        console.print("\n⚠️ Exiting...")
+        console.print(f"\n[bright_yellow]⚠️ Exiting...[/bright_yellow]")
+        console.print(f"[bright_cyan]Follow @raj_dark_official on Instagram![/bright_cyan]")
+    except Exception as e:
+        console.print(f"\n[bright_red]❌ Fatal Error: {e}[/bright_red]")
