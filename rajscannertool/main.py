@@ -30,11 +30,11 @@ RESULTS_WORD = os.path.join(OUTPUT_DIR, "scanner_results.txt")
 CIDR_RESULTS = os.path.join(OUTPUT_DIR, "cidr_results.txt")
 
 # --- Thread Configuration (Default) ---
-DEFAULT_THREADS = 500
-MIN_THREADS = 80
-MAX_THREADS = 500
-BATCH_SIZE = 10000
-CHUNK_SIZE = 2000
+DEFAULT_THREADS = 50
+MIN_THREADS = 50
+MAX_THREADS = 150
+BATCH_SIZE = 500
+CHUNK_SIZE = 500
 
 # --- Developer Info ---
 DEV_NAME = "Mr. Raj"
@@ -96,7 +96,7 @@ def banner():
     console.print("╠══════════════════════════════════════════════════════════╣", style="bright_cyan")
     console.print("║       Created by Mr Raj | Mr tech hacker                 ║", style="bright_green")
     console.print("║            Advanced Tool fast Scanner v2.0               ║", style="bright_blue")
-    console.print("║         [THREADS: 80-500 - USER SELECTABLE]              ║", style="bright_magenta")
+    console.print("║         [THREADS: 50-150 - USER SELECTABLE]              ║", style="bright_magenta")
     console.print("╚══════════════════════════════════════════════════════════╝", style="bright_red")
     console.print()
 
@@ -231,6 +231,29 @@ def get_ip(domain):
     except socket.gaierror:
         return "N/A"
 
+# Global lists to store results for saving
+found_ips = []
+found_results = []
+save_lock = threading.Lock()
+
+def save_results_to_files():
+    """Save all collected results to files"""
+    try:
+        with save_lock:
+            if found_ips:
+                with open(RESULTS_IP, "a") as ip_file:
+                    for ip in found_ips:
+                        ip_file.write(f"{ip}\n")
+                found_ips.clear()
+            
+            if found_results:
+                with open(RESULTS_WORD, "a") as word_file:
+                    for result in found_results:
+                        word_file.write(f"{result}\n")
+                found_results.clear()
+    except Exception as e:
+        console.print(f"[bright_red]Error saving results: {e}[/bright_red]")
+
 def scan_head(domain, port, progress, task_id, total_found):
     """Optimized scanner with connection pooling"""
     url = f"http://{domain}:{port}" if port != 443 else f"https://{domain}:{port}"
@@ -271,20 +294,24 @@ def scan_head(domain, port, progress, task_id, total_found):
                 )
                 total_found[0] += 1
                 
-                if total_found[0] % 100 == 0:
-                    try:
-                        with open(RESULTS_IP, "a") as ip_file:
-                            ip_file.write(f"{ip}\n")
-                        with open(RESULTS_WORD, "a") as word_file:
-                            word_file.write(f"{line}\n")
-                    except:
-                        pass
+                # Store results for saving
+                with save_lock:
+                    found_ips.append(ip)
+                    found_results.append(line)
+                    
+                    # Save every 50 results to avoid memory issues
+                    if len(found_ips) >= 50 or len(found_results) >= 50:
+                        save_results_to_files()
     except:
         pass
     finally:
         progress.update(task_id, advance=1)
 
 def run_text_scanner():
+    global found_ips, found_results
+    found_ips = []
+    found_results = []
+    
     ensure_output_dir()
     console.print(f"\n[bold bright_red]🔍 HOST SCANNER[/bold bright_red]")
     console.print(f"[bright_cyan]──────────────────────────────────────────[/bright_cyan]")
@@ -318,6 +345,7 @@ def run_text_scanner():
     threads = get_thread_count()
     console.print(f"[bright_green]⚡ Using {threads} threads for scanning![/bright_green]")
 
+    # Clear files before starting
     open(RESULTS_IP, "w").close()
     open(RESULTS_WORD, "w").close()
 
@@ -364,6 +392,9 @@ def run_text_scanner():
 
     except Exception as e:
         console.print(f"[bright_red]❌ Error during scan: {e}[/bright_red]")
+    
+    # Save any remaining results
+    save_results_to_files()
 
     elapsed = time.time() - start
     rate = total / elapsed if elapsed > 0 else 0
@@ -574,3 +605,4 @@ def start():
         main()
     except KeyboardInterrupt:
         console.print("\n⚠️ Exiting...")
+
